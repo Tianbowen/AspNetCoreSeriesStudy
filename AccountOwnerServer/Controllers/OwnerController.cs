@@ -8,6 +8,7 @@ using Entities.DataTransferObjects;
 using Entities.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
 
 namespace AccountOwnerServer.Controllers
 {
@@ -25,21 +26,48 @@ namespace AccountOwnerServer.Controllers
             _mapper = mapper;
         }
 
+        //[HttpGet]
+        //public IActionResult GetAllOwners()
+        //{
+        //    try
+        //    {
+        //        var owners = _repository.Owner.GetAllOwners();
+        //        _logger.LogInfo($"Returned all owners from database.");
+        //        var ownersResult = _mapper.Map<IEnumerable<OwnerDto>>(owners);
+        //        return Ok(ownersResult);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError($"Something went wrong inside GetAllOwners action: {ex.Message}");
+        //        return StatusCode(500, "Internal server error");
+        //    }
+        //}
+
         [HttpGet]
-        public IActionResult GetAllOwners()
+        public IActionResult GetOwners([FromQuery] OwnerParameters ownerParameters)
         {
-            try
+            if (!ownerParameters.ValidYearRange)
             {
-                var owners = _repository.Owner.GetAllOwners();
-                _logger.LogInfo($"Returned all owners from database.");
-                var ownersResult = _mapper.Map<IEnumerable<OwnerDto>>(owners);
-                return Ok(ownersResult);
+                return BadRequest("Max year of birth cannot be less than min year of birth");
             }
-            catch (Exception ex)
+
+            var owners = _repository.Owner.GetOwners(ownerParameters);
+
+            var metadata = new
             {
-                _logger.LogError($"Something went wrong inside GetAllOwners action: {ex.Message}");
-                return StatusCode(500, "Internal server error");
-            }
+                owners.TotalCount,
+                owners.PageSize,
+                owners.CurrentPage,
+                owners.TotalPages,
+                owners.HasNext,
+                owners.HasPrevious
+            };
+
+            Response.Headers.Add("X-Pagination",JsonConvert.SerializeObject(metadata));
+
+            _logger.LogInfo($"Returned {owners.Count()} owners from database.");
+
+            return Ok(owners);
         }
 
         [HttpGet("{id}",Name = "OwnerById")]
